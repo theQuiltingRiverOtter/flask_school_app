@@ -13,7 +13,7 @@ class Student(db.Model):
     first_name = db.Column(db.String(50))
     last_name = db.Column(db.String(50))
     age = db.Column(db.Integer)
-    subject = db.Column(db.Integer)
+    subject_id = db.Column(db.Integer, db.ForeignKey("subjects.id"))
 
 
 class Teachers(db.Model):
@@ -21,13 +21,14 @@ class Teachers(db.Model):
     first_name = db.Column(db.String(50))
     last_name = db.Column(db.String(50))
     age = db.Column(db.Integer)
-    subject = db.Column(db.Integer)
+    subject_id = db.Column(db.Integer, db.ForeignKey("subjects.id"))
 
 
 class Subjects(db.Model):
-    __tablename__ = "subjects"
     id = db.Column(db.Integer, primary_key=True)
     subject = db.Column(db.String(50))
+    teacher = db.relationship("Teachers", backref="subject", lazy=True, uselist=False)
+    student_list = db.relationship("Student", backref="subject", lazy=True)
 
 
 @app.route("/students", methods=["GET"])
@@ -40,8 +41,8 @@ def get_students():
             "last_name": student.last_name,
             "age": student.age,
             "class": {
-                "subject": Subjects.query.get(student.subject).subject,
-                "teacher": f"{Teachers.query.filter(student.subject == Teachers.subject).one().first_name} {Teachers.query.filter(student.subject == Teachers.subject).one().last_name}",
+                "subject": student.subject.subject,
+                "teacher": f"{student.subject.teacher.first_name} {student.subject.teacher.last_name}",
             },
         }
         for student in students
@@ -58,12 +59,10 @@ def get_teachers():
             "last_name": teacher.last_name,
             "age": teacher.age,
             "subject": {
-                "subject": Subjects.query.get(teacher.subject).subject,
+                "subject": teacher.subject.subject,
                 "students": [
                     f"{person.first_name} {person.last_name}"
-                    for person in Student.query.filter(
-                        Student.subject == teacher.subject
-                    )
+                    for person in teacher.subject.student_list
                 ],
             },
         }
@@ -78,10 +77,10 @@ def get_subjects():
     subject_list = [
         {
             "subject": subject.subject,
-            "teacher": f"{Teachers.query.filter(subject.id == Teachers.subject).one().first_name} {Teachers.query.filter(subject.id == Teachers.subject).one().last_name}",
+            "teacher": f"{subject.teacher.first_name} {subject.teacher.last_name}",
             "students": [
                 f"{person.first_name} {person.last_name}"
-                for person in Student.query.filter(Student.subject == subject.id)
+                for person in subject.student_list
             ],
         }
         for subject in subjects
